@@ -97,8 +97,10 @@ void drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pix
     GifImageDesc imageDesc = savedImage.ImageDesc;
     GifByteType *bits = savedImage.RasterBits;
 
-    // bitmapInfo.width 表示图像像素
-    LOGD("drawFrame width:%d, height:%d, stride:%d", bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
+    // bitmapInfo.width 表示图像像素，一个像素等于四个字节
+    // bitmapInfo.stride 表示图像一行的字节数
+    LOGD("bitmapInfo width:%d, height:%d, stride:%d", bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
+    LOGD("GifImageDesc Left:%d, Top:%d, Width:%d, Height:%d", imageDesc.Left, imageDesc.Top, imageDesc.Width, imageDesc.Height);
 
     int *px = (int *) pixels;
     int *line;
@@ -108,10 +110,11 @@ void drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pix
         for (int x = imageDesc.Left; x < imageDesc.Left + imageDesc.Width; ++x) {
             // 每一行，计算出索引，即偏移
             pointerPixel = (y - imageDesc.Top) * imageDesc.Width + (x - imageDesc.Left);
+            // 拿到压缩像素
             GifByteType gifByteType = bits[pointerPixel];
-            // 查找字典
+            // 查找字典，获取像素信息
             GifColorType gifColorType = imageDesc.ColorMap->Colors[gifByteType];
-            // 赋值
+            // 赋值给像素，四个字节
             line[x] = argb(255, gifColorType.Red, gifColorType.Green, gifColorType.Blue);
         }
         // bitmapInfo.stride 表示一行的字节数，切到下一行

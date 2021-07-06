@@ -8,17 +8,17 @@ extern "C" {
 }
 
 #define  LOG_TAG    "native"
-#define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
+#define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 #define argb(a, r, g, b) (((a) & 0xff) << 24 | ((b) & 0xff) << 16 | ((g) & 0xff) << 8 | ((r) & 0xff))
 
 struct GifBean {
-    int current_frame;
+    int next_frame;
     int total_frame;
     int *delays;
 };
 
-void drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pixels);
+int drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pixels);
 
 extern "C"
 JNIEXPORT jlong JNICALL
@@ -34,7 +34,7 @@ Java_com_blood_giftool_GifHelper_nativeLoadGifPath(JNIEnv *env, jclass clazz, js
 
     auto *gifBean = (GifBean *) malloc(sizeof(GifBean));
     memset(gifBean, 0, sizeof(GifBean));
-    gifBean->current_frame = 0;
+    gifBean->next_frame = 0;
     gifBean->total_frame = gifFileType->ImageCount;
     gifFileType->UserData = gifBean;
 
@@ -59,7 +59,7 @@ Java_com_blood_giftool_GifHelper_nativeGetHeight(JNIEnv *env, jclass clazz, jlon
 }
 
 extern "C"
-JNIEXPORT void JNICALL
+JNIEXPORT jint JNICALL
 Java_com_blood_giftool_GifHelper_nativeUpdateFrame(JNIEnv *env, jclass clazz, jlong ptr,
                                                    jobject bitmap) {
     auto *gifFileType = (GifFileType *) ptr;
@@ -74,33 +74,37 @@ Java_com_blood_giftool_GifHelper_nativeUpdateFrame(JNIEnv *env, jclass clazz, jl
     LOGD("androidBitmapInfo : width %d height %d", _width, _height);
 
     // 将bitmap转为一个二位数组
-    void *pixels;
+    void *pixels = nullptr;
     AndroidBitmap_lockPixels(env, bitmap, &pixels);
 
     // 绘制
-    drawFrame(gifFileType, androidBitmapInfo, pixels);
+    int delay = drawFrame(gifFileType, androidBitmapInfo, pixels);
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
     auto *gifBean = (GifBean *) gifFileType->UserData;
-    gifBean->current_frame++;
-    if (gifBean->current_frame >= gifBean->total_frame - 1) {
-        gifBean->current_frame = 0;
+    gifBean->next_frame++;
+    if (gifBean->next_frame >= gifBean->total_frame - 1) {
+        gifBean->next_frame = 0;
     }
+
+    return delay;
 }
 
-void drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pixels) {
+int drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pixels) {
     auto *gifBean = (GifBean *) gifFileType->UserData;
     // 压缩帧
-    SavedImage savedImage = gifFileType->SavedImages[gifBean->current_frame];
+    SavedImage savedImage = gifFileType->SavedImages[gifBean->next_frame];
     // 分为两部分，描述+像素
     GifImageDesc imageDesc = savedImage.ImageDesc;
     GifByteType *bits = savedImage.RasterBits;
 
     // bitmapInfo.width 表示图像像素，一个像素等于四个字节
     // bitmapInfo.stride 表示图像一行的字节数
-    LOGD("bitmapInfo width:%d, height:%d, stride:%d", bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
-    LOGD("GifImageDesc Left:%d, Top:%d, Width:%d, Height:%d", imageDesc.Left, imageDesc.Top, imageDesc.Width, imageDesc.Height);
+    LOGD("bitmapInfo width:%d, height:%d, stride:%d", bitmapInfo.width, bitmapInfo.height,
+         bitmapInfo.stride);
+    LOGD("GifImageDesc Left:%d, Top:%d, Width:%d, Height:%d", imageDesc.Left, imageDesc.Top,
+         imageDesc.Width, imageDesc.Height);
 
     int *px = (int *) pixels;
     int *line;
@@ -121,4 +125,17 @@ void drawFrame(GifFileType *gifFileType, AndroidBitmapInfo bitmapInfo, void *pix
         px = reinterpret_cast<int *>((char *) px + bitmapInfo.stride);
     }
 
+    return 33;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_blood_giftool_GifHelper_nativeRelease(JNIEnv *env, jclass clazz, jlong ptr) {
+    auto *gifFileType = (GifFileType *) ptr;
+    if (gifFileType) {
+        if (gifFileType->UserData) {
+            free(gifFileType->UserData);
+            gifFileType->UserData = nullptr;
+        }
+    }
 }

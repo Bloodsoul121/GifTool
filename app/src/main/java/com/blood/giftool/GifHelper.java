@@ -24,8 +24,11 @@ public class GifHelper {
     }
 
     public int updateFrame(Bitmap bitmap) {
-        nativeUpdateFrame(mPtr, bitmap);
-        return 33;
+        return nativeUpdateFrame(mPtr, bitmap);
+    }
+
+    public void release() {
+        nativeRelease(mPtr);
     }
 
     public native static long nativeLoadGifPath(String path);
@@ -34,6 +37,8 @@ public class GifHelper {
 
     public native static int nativeGetHeight(long ptr);
 
-    public native static void nativeUpdateFrame(long ptr, Bitmap bitmap);
+    public native static int nativeUpdateFrame(long ptr, Bitmap bitmap);
+
+    public native static void nativeRelease(long ptr);
 
 }

@@ -48,6 +48,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         mHandler.removeCallbacksAndMessages(null);
+        if (mGifHelper != null) {
+            mGifHelper.release();
+        }
     }
 
     private String copyAssetsGif() {
